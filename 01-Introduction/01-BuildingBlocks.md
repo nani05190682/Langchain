@@ -107,3 +107,6 @@ These are often discussed alongside the core building blocks, but they are not a
 - RAG (Retrieval-Augmented Generation): Supplies relevant external documents to the model at inference time.
 - Guardrails: Apply policies and validation to reduce unsafe or unwanted outputs.
 
+
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/9b5a6b7a-8720-459a-b789-6b062760b658" />
+
