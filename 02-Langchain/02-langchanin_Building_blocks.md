@@ -58,7 +58,26 @@ Model I/O covers the input sent to an LLM and the output received from it. In La
 Suppose an engineer wants an explanation of a Kubernetes error.
 
 ```
-from langchain_openai import ChatOpenAIfrom langchain_core.prompts import ChatPromptTemplatefrom langchain_core.output_parsers import StrOutputParsermodel = ChatOpenAI(model="gpt-4.1-mini", temperature=0)prompt = ChatPromptTemplate.from_messages([    ("system", "You are a DevOps troubleshooting assistant."),    ("human", "Explain this Kubernetes error: {error}")])chain = prompt | model | StrOutputParser()result = chain.invoke({    "error": "CrashLoopBackOff"})print(result)
+
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+model = ChatOpenAI(model="gpt-4.1-mini", temperature=0)
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are a DevOps troubleshooting assistant."),
+    ("human", "Explain this Kubernetes error: {error}")
+])
+
+chain = prompt | model | StrOutputParser()
+
+result = chain.invoke({
+    "error": "CrashLoopBackOff"
+})
+
+print(result)
+
 ```
 
 Install the required packages and configure `OPENAI_API_KEY` before running the example.
@@ -93,7 +112,23 @@ Output: Error, explanation and suggested fix
 ### Example in Python
 
 ```
-from langchain_core.prompts import ChatPromptTemplatefrom langchain_core.output_parsers import StrOutputParserfrom langchain_openai import ChatOpenAImodel = ChatOpenAI(model="gpt-4.1-mini", temperature=0)prompt = ChatPromptTemplate.from_template(    "Analyze this build error and suggest a fix:\n{log}")chain = prompt | model | StrOutputParser()result = chain.invoke({    "log": "ModuleNotFoundError: No module named 'requests'"})print(result)
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_openai import ChatOpenAI
+
+model = ChatOpenAI(model="gpt-4.1-mini", temperature=0)
+
+prompt = ChatPromptTemplate.from_template(
+    "Analyze this build error and suggest a fix:\n{log}"
+)
+
+chain = prompt | model | StrOutputParser()
+
+result = chain.invoke({
+    "log": "ModuleNotFoundError: No module named 'requests'"
+})
+
+print(result)
 ```
 
 The `|` operator connects the prompt, model, and parser into a runnable sequence.
@@ -174,7 +209,17 @@ A tool provides that connection.
 ### Example: Create a tool
 
 ```
-from langchain_core.tools import tool@tooldef get_pod_status(pod_name: str) -> str:    """Return the status of a Kubernetes pod."""    # Demo implementation; replace with a real,    # authorized Kubernetes API call.    return f"Pod {pod_name}: CrashLoopBackOff"print(get_pod_status.invoke({"pod_name": "payment-api"}))
+from langchain_core.tools import tool
+
+@tool
+def get_pod_status(pod_name: str) -> str:
+    """Return the status of a Kubernetes pod."""
+    # Demo implementation; replace with a real,
+    # authorized Kubernetes API call.
+    return f"Pod {pod_name}: CrashLoopBackOff"
+
+print(get_pod_status.invoke({"pod_name": "payment-api"}))
+
 ```
 
 This creates a callable tool. It does not yet give the LLM autonomous access to Kubernetes.
@@ -238,31 +283,30 @@ Generate a grounded answer
 ### Example code
 
 ```
-from langchain.agents import create_agent
-from langchain_openai import ChatOpenAI
-from langchain_core.tools import tool
+from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_core.documents import Document
+from langchain_openai import OpenAIEmbeddings
 
-@tool
-def check_service(service: str) -> str:
-    """Check the status of a service."""
-    # Demonstration only; replace with a real status check.
-    return f"{service}: operational"
+documents = [
+    Document(
+        page_content="Check pod logs and describe the termination reason."
+    ),
+    Document(
+        page_content="Check CPU and memory limits when investigating OOMKilled."
+    )
+]
 
-model = ChatOpenAI(model="gpt-4.1-mini")
-
-agent = create_agent(
-    model=model,
-    tools=[check_service],
-    system_prompt="You are an SRE assistant."
+embeddings = OpenAIEmbeddings(
+    model="text-embedding-3-small"
 )
 
-result = agent.invoke({
-    "messages": [
-        {"role": "user", "content": "Check the payment API"}
-    ]
-})
+store = InMemoryVectorStore(embeddings)
+store.add_documents(documents)
 
-print(result["messages"][-1].content)
+retriever = store.as_retriever(search_kwargs={"k": 1})
+results = retriever.invoke("Why was my Kubernetes container killed?")
+for doc in results:
+    print(doc.page_content)
 ```
 
 This example creates an in-memory vector index. For larger or persistent datasets, you would normally use a suitable persistent vector store. The code also requires OpenAI API access for embeddings.
@@ -320,7 +364,31 @@ Report + approval-gated remediation
 ### Modern LangChain agent example
 
 ```
-from langchain.agents import create_agentfrom langchain_openai import ChatOpenAIfrom langchain_core.tools import tool@tooldef check_service(service: str) -> str:    """Check the status of a service."""    # Demonstration only; replace with a real status check.    return f"{service}: operational"model = ChatOpenAI(model="gpt-4.1-mini")agent = create_agent(    model=model,    tools=[check_service],    system_prompt="You are an SRE assistant.")result = agent.invoke({    "messages": [        {"role": "user", "content": "Check the payment API"}    ]})print(result["messages"][-1].content)
+from langchain.agents import create_agent
+from langchain_openai import ChatOpenAI
+from langchain_core.tools import tool
+
+@tool
+def check_service(service: str) -> str:
+    """Check the status of a service."""
+    # Demonstration only; replace with a real status check.
+    return f"{service}: operational"
+
+model = ChatOpenAI(model="gpt-4.1-mini")
+
+agent = create_agent(
+    model=model,
+    tools=[check_service],
+    system_prompt="You are an SRE assistant."
+)
+
+result = agent.invoke({
+    "messages": [
+        {"role": "user", "content": "Check the payment API"}
+    ]
+})
+
+print(result["messages"][-1].content)
 ```
 
 The tool above is a demonstration, not a live infrastructure check. A production implementation needs an actual API integration and appropriate access controls.
