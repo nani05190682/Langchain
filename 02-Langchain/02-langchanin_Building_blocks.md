@@ -238,7 +238,31 @@ Generate a grounded answer
 ### Example code
 
 ```
-from langchain_core.vectorstores import InMemoryVectorStorefrom langchain_core.documents import Documentfrom langchain_openai import OpenAIEmbeddingsdocuments = [    Document(        page_content="Check pod logs and describe the termination reason."    ),    Document(        page_content="Check CPU and memory limits when investigating OOMKilled."    )]embeddings = OpenAIEmbeddings(    model="text-embedding-3-small")store = InMemoryVectorStore(embeddings)store.add_documents(documents)retriever = store.as_retriever(search_kwargs={"k": 1})results = retriever.invoke("Why was my Kubernetes container killed?")for doc in results:    print(doc.page_content)
+from langchain.agents import create_agent
+from langchain_openai import ChatOpenAI
+from langchain_core.tools import tool
+
+@tool
+def check_service(service: str) -> str:
+    """Check the status of a service."""
+    # Demonstration only; replace with a real status check.
+    return f"{service}: operational"
+
+model = ChatOpenAI(model="gpt-4.1-mini")
+
+agent = create_agent(
+    model=model,
+    tools=[check_service],
+    system_prompt="You are an SRE assistant."
+)
+
+result = agent.invoke({
+    "messages": [
+        {"role": "user", "content": "Check the payment API"}
+    ]
+})
+
+print(result["messages"][-1].content)
 ```
 
 This example creates an in-memory vector index. For larger or persistent datasets, you would normally use a suitable persistent vector store. The code also requires OpenAI API access for embeddings.
